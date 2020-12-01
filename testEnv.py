@@ -1,17 +1,25 @@
 import pygame
 import math
+import time
+from datetime import datetime
 
 pygame.init()
 pygame.display.set_caption('visualApath')
 
 sqSide = 64
 fieldSize = 10
-res = (sqSide * fieldSize, sqSide * fieldSize)
+
+topBar = sqSide
+timeBoxPos = (212, 33)
+resetBoxPos = (424, 33)
+
+res = (sqSide * fieldSize, (sqSide * fieldSize) + topBar)
 
 screen = pygame.display.set_mode(res)
-myFont = pygame.font.SysFont("Calibri", int(sqSide/2))
+myFont = pygame.font.SysFont("Calibri", int(sqSide / 2))
 
 gameActiveBool = True
+gameRunning = True
 
 
 def initialGen():
@@ -19,86 +27,119 @@ def initialGen():
 
     for x in range(fieldSize):
         for y in range(fieldSize):
-            fieldDic[(x * sqSide, y * sqSide)] = {"f": math.inf, "g": math.inf, "h": math.inf, "state": "None",
-                                                  "parent": tuple}
+            fieldDic[(x * sqSide, topBar + (y * sqSide))] = {"f": math.inf, "g": math.inf, "h": math.inf,
+                                                             "state": "None",
+                                                             "parent": tuple}
 
     return fieldDic
 
 
-def mouseController(butNum, mousePos):
-    if butNum == 1:
-        if getGameState() < 3:
-            nextStage(getGameState(), mousePos)
-
-    elif butNum == 3:
-        if getGameState() == 3:
-            updateAround(getPosByStateValue("state", "start"))
-            upStage()
-
-        if getGameState() == 6:
-            gameReset()
-
-
-def updateNodeItem(pos, item, value):
-    playField[pos][item] = value
-
-
-def getNodeItem(pos, item):
-    return playField[pos][item]
-
-
-def getPosByStateValue(item, value):
+def drawField():
     for pos, items in playField.items():
-        if items[item] == value:
-            return pos
+        pygame.draw.rect(screen, getColorByState(items["state"]), (pos[0] + 1, (pos[1] + 1), sqSide - 2, sqSide - 2))
+
+        if items["f"] not in (math.inf, 0) and items["state"] not in ("start", "end", "wall"):
+            drawStr(((pos[0] + (sqSide / 2)), (pos[1] + (sqSide / 2))), items["f"])
+
+        if items["state"] == "start":
+            drawStr(((pos[0] + (sqSide / 2)), (pos[1] + (sqSide / 2))), "S")
+
+        # if end bool is ok
+        # elif items["state"] == "end":
+        # drawNodeF(pos, "F")
 
 
-def getLowestFNode():
-    tempF = math.inf
-    nodePos = tuple
+def drawStr(pos, text):
+    printStr = myFont.render(str(text), False, (0, 0, 0))
+    strWidth, strHeight = myFont.size(str(text))
 
-    for pos, items in playField.items():
-        if items["state"] == "open":
-            if items["f"] < tempF:
-                tempF = items["f"]
-                nodePos = pos
+    x = int(pos[0] - (strWidth / 2))
+    y = int(pos[1] - (strHeight / 2))
 
-    return nodePos
+    screen.blit(printStr, (x, y))
+
+
+def clickControler(pos):
+    if gameRunning:
+        updateAround(pos)
+
+
+def updateAround(pos):
+    aList = getAround(pos)
+
+    for ite, cords in enumerate(aList):
+
+        if cords is not None:
+
+            #if getNodeItem(cords, "state") == "end":
+                #changeGS()
+
+            if getNodeItem(cords, "state") not in ("wall", "start", "end"):
+
+                if ite < 4:
+                    disValue = 14
+
+                elif ite > 3:
+                    disValue = 10
+
+                oriG = getNodeItem(pos, "g")
+
+                nodeG = oriG + disValue
+                nodeH = calcNodeNum(cords, getPosByStateValue("state", "end"))
+                nodeF = nodeG + nodeH
+
+                if nodeG < getNodeItem(cords, "g"):
+                    updateNodeItem(cords, "g", nodeG)
+
+                if nodeH < getNodeItem(cords, "h"):
+                    updateNodeItem(cords, "h", nodeH)
+
+                if nodeF < getNodeItem(cords, "f"):
+                    updateNodeItem(cords, "f", nodeF)
+                    updateNodeItem(cords, "parent", pos)
+
+                if getNodeItem(cords, "state") != "closed":
+                    updateNodeItem(cords, "state", "open")
+
+    if getNodeItem(pos, "state") not in ("start", "end", "wall"):
+        updateNodeItem(pos, "state", "closed")
 
 
 def getAround(pos):
     sideMin = 0
+    topMin = 64
     sideMax = (fieldSize * sqSide) - sqSide
+    botMax = fieldSize * sqSide
 
     xPos = pos[0]
     yPos = pos[1]
 
     # Top left coordinates
-    if sideMin not in pos:
+    if sideMin != pos[0] and topMin != pos[1]:
         tl = (xPos - sqSide, yPos - sqSide)
     else:
         tl = None
 
     # Top right coordinates
-    if sideMax != xPos and sideMin != yPos:
+    if sideMax != xPos and topMin != yPos:
         tr = (xPos + sqSide, yPos - sqSide)
     else:
         tr = None
 
     # Bottom left coordinates
-    if sideMin != xPos and sideMax != yPos:
+    if sideMin != xPos and botMax != yPos:
         bl = (xPos - sqSide, yPos + sqSide)
     else:
         bl = None
 
     # Bottom right coordinates
-    if sideMax not in pos:
+    if sideMax != pos[0] and botMax != pos[1]:
         br = (xPos + sqSide, yPos + sqSide)
     else:
         br = None
 
     # Top middle coordinates
-    if sideMin != yPos:
+    if topMin != yPos:
         tm = (xPos, yPos - sqSide)
     else:
         tm = None
@@ -116,7 +157,7 @@ def getAround(pos):
         right = None
 
     # Bottom middle coordinates
-    if sideMax != yPos:
+    if botMax != yPos:
         bm = (xPos, yPos + sqSide)
     else:
         bm = None
@@ -124,46 +165,8 @@ def getAround(pos):
     return tl, tr, bl, br, tm, left, right, bm
 
 
-def updateAround(pos):
-    aList = getAround(pos)
-
-    for ite, cords in enumerate(aList):
-
-        if cords is not None:
-
-            if getNodeItem(cords, "state") not in ("wall", "start"):
-
-                if ite < 4:
-                    disValue = 14
-
-                elif ite > 3:
-                    disValue = 10
-
-                oriG = getNodeItem(pos, "g")
-
-                nodeG = oriG + disValue
-                nodeH = calcNodeNum(cords, getPosByStateValue("state", "end"))
-
-                if nodeH == 0:
-                    upStage()
-
-                nodeF = nodeG + nodeH
-
-                if nodeG < getNodeItem(cords, "g"):
-                    updateNodeItem(cords, "g", nodeG)
-
-                if nodeH < getNodeItem(cords, "h"):
-                    updateNodeItem(cords, "h", nodeH)
-
-                if nodeF < getNodeItem(cords, "f"):
-                    updateNodeItem(cords, "f", nodeF)
-                    updateNodeItem(cords, "parent", pos)
-
-                if getNodeItem(cords, "state") not in ("end", "closed"):
-                    updateNodeItem(cords, "state", "open")
-
-    if getNodeItem(pos, "state") not in ("start", "end", "wall"):
-        updateNodeItem(pos, "state", "closed")
+def getNodeItem(pos, item):
+    return playField[pos][item]
 
 
 def calcNodeNum(pos, endPos):
@@ -176,52 +179,46 @@ def calcNodeNum(pos, endPos):
     return int(14 * dX + (10 * (dY - dX)))
 
 
-def nextStage(gs, pos):
-    if gs == 1:
-        updateNodeItem(pos, "state", "start")
-        updateNodeItem(pos, "g", 0)
-        upStage()
-
-    elif gs == 2 and getNodeItem(pos, "state") != "start":
-        updateNodeItem(pos, "state", "end")
-        updateNodeItem(pos, "h", 0)
-        upStage()
-
-    elif gs == 3 and getNodeItem(pos, "state") not in ("start", "end", "wall"):
-        updateNodeItem(pos, "state", "wall")
-
-
-def upStage():
-    global gameState
-    gameState += 1
-
-
-def getGameState():
-    global gameState
-    return gameState
-
-
-def drawField():
+def getPosByStateValue(item, value):
     for pos, items in playField.items():
-        pygame.draw.rect(screen, getColorByState(items["state"]), (pos[0] + 1, pos[1] + 1, sqSide - 2, sqSide - 2))
-
-        if items["f"] not in (math.inf, 0) and items["state"] not in ("start", "end", "wall"):
-            drawStr(pos, items["f"])
-
-        if items["state"] == "start":
-            drawStr(pos, "S")
-
-        elif items["state"] == "end":
-            drawStr(pos, "F")
+        if items[item] == value:
+            return pos
 
 
-def drawStr(pos, text):
-    printStr = myFont.render(str(text), False, (0, 0, 0))
+def updateNodeItem(pos, item, value):
+    playField[pos][item] = value
+
+
+def changeGS():
+    global gameRunning
+
+    if gameRunning:
+        gameRunning = False
+
+    else:
+        gameRunning = True
+
+
+def drawBox(pos, text):
     strWidth, strHeight = myFont.size(str(text))
-    y = int(pos[1] + (sqSide/3))
-    x = int((pos[0] + ((sqSide/2) - (strWidth / 2))))
-    posTuple = (x, y)
-    screen.blit(printStr, posTuple)
+
+    x = int(pos[0] - (strWidth / 2))
+    y = int(pos[1] - (strHeight / 2))
+
+    pygame.draw.rect(screen, (0, 0, 0,), pygame.Rect(x - 4, y - 4, strWidth + 4, strHeight + 4), 2)
+
+
+def drawTopBar():
+    pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(2, 2, 636, 61))
+
+    # drawStr(timeBoxPos, sec)
+    if gameRunning:
+        drawBox(resetBoxPos, "Reset")
+        drawStr(resetBoxPos, "Reset")
+
+    else:
+        drawBox(resetBoxPos, "Start")
+        drawStr(resetBoxPos, "Start")
 
 
 def getColorByState(state):
@@ -241,48 +238,48 @@ def getColorByState(state):
         return 0, 255, 0
 
 
-def getPath():
-    currentNode = getPosByStateValue("state", "end")
-    start = getPosByStateValue("state", "start")
-
-    while start != currentNode:
-        currentNode = getNodeItem(currentNode, "parent")
-        if currentNode != start:
-            updateNodeItem(currentNode, "state", "path")
-
-    upStage()
+def drawGame():
+    drawField()
+    drawTopBar()
 
 
-def gameController(gs):
+def setStartEnd():
+    updateNodeItem((0, 64), "state", "start")
+    updateNodeItem((0, 64), "g", 0)
+    updateNodeItem((576, 640), "state", "end")
+    updateAround((0, 64))
+
+
+def getRandomMap():
+    #set of predetermines starts and ends
+    #generate random walls
+    #check path is avaiable checkPath()
+    #return playField
+
+
+def checkPath():
+    #idk,
     try:
-        if gs == 3:
-            if pygame.mouse.get_pressed(3)[0]:
-                nextStage(gs, relativeMouse)
+        currentNode = getPosByStateValue("state", "end")
+        start = getPosByStateValue("state", "start")
 
-        elif gs == 4:
-            updateAround(getLowestFNode())
+        while start != currentNode:
+            currentNode = getNodeItem(currentNode, "parent")
+            if currentNode != start:
+                updateNodeItem(currentNode, "state", "path")
 
-        elif gs == 5:
-            getPath()
+        return True
 
     except TypeError:
-        gameReset()
-
-
-def gameReset():
-    global gameState
-    global playField
-
-    playField = initialGen()
-    gameState = 1
+        return False
 
 
 playField = initialGen()
-gameState = 1
+setStartEnd()
 
 while gameActiveBool:
 
-    drawField()
+    drawGame()
 
     mouse = pygame.mouse.get_pos()
     relativeMouse = ((mouse[0] // sqSide) * sqSide, (mouse[1] // sqSide) * sqSide)
@@ -295,9 +292,7 @@ while gameActiveBool:
             # pygame.quit()
 
         if ev.type == pygame.MOUSEBUTTONDOWN:
-            mouseController(ev.button, relativeMouse)
-
-    gameController(getGameState())
+            clickControler(relativeMouse)
 
     pygame.display.update()
 
