@@ -59,9 +59,21 @@ def drawStr(pos, text):
     screen.blit(printStr, (x, y))
 
 
-def clickControler(pos):
-    if gameRunning:
-        updateAround(pos)
+def clickController(pos):
+    relativeMouse = ((pos[0] // sqSide) * sqSide, (pos[1] // sqSide) * sqSide)
+
+    strWidth, strHeight = myFont.size(str("Start"))
+    minX = int(resetBoxPos[0] - (strWidth / 2)) - 4
+    minY = int(resetBoxPos[1] - (strHeight / 2)) - 4
+
+    maxX = int(resetBoxPos[0] + (strWidth / 2)) + 4
+    maxY = int(resetBoxPos[1] + (strHeight / 2)) + 4
+
+    if relativeMouse in [cords for cords in playField.keys()] and gameRunning:
+        updateAround(relativeMouse)
+
+    elif minX < pos[0] < maxX and minY < pos[1] < maxY:
+        changeGS()
 
 
 def updateAround(pos):
@@ -71,8 +83,8 @@ def updateAround(pos):
 
         if cords is not None:
 
-            #if getNodeItem(cords, "state") == "end":
-                #changeGS()
+            # if getNodeItem(cords, "state") == "end":
+            # changeGS()
 
             if getNodeItem(cords, "state") not in ("wall", "start", "end"):
 
@@ -250,15 +262,18 @@ def setStartEnd():
     updateAround((0, 64))
 
 
+"""
 def getRandomMap():
     #set of predetermines starts and ends
     #generate random walls
     #check path is avaiable checkPath()
     #return playField
 
+"""
+
 
 def checkPath():
-    #idk,
+    # idk,
     try:
         currentNode = getPosByStateValue("state", "end")
         start = getPosByStateValue("state", "start")
@@ -281,8 +296,7 @@ while gameActiveBool:
 
     drawGame()
 
-    mouse = pygame.mouse.get_pos()
-    relativeMouse = ((mouse[0] // sqSide) * sqSide, (mouse[1] // sqSide) * sqSide)
+    mousePos = pygame.mouse.get_pos()
 
     for ev in pygame.event.get():
 
@@ -292,7 +306,7 @@ while gameActiveBool:
             # pygame.quit()
 
         if ev.type == pygame.MOUSEBUTTONDOWN:
-            clickControler(relativeMouse)
+            clickController(mousePos)
 
     pygame.display.update()
 
