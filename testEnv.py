@@ -19,8 +19,11 @@ screen = pygame.display.set_mode(res)
 myFont = pygame.font.SysFont("Calibri", int(sqSide / 2))
 
 gameActiveBool = True
-gameRunning = True
+gameRunning = False
 
+timeStart = 0
+lastTime = 0
+sec = 0
 
 def initialGen():
     fieldDic = {}
@@ -60,6 +63,9 @@ def drawStr(pos, text):
 
 
 def clickController(pos):
+    global timeStart
+    global lastTime
+
     relativeMouse = ((pos[0] // sqSide) * sqSide, (pos[1] // sqSide) * sqSide)
 
     strWidth, strHeight = myFont.size(str("Start"))
@@ -72,7 +78,11 @@ def clickController(pos):
     if relativeMouse in [cords for cords in playField.keys()] and gameRunning:
         updateAround(relativeMouse)
 
+    # Start/Reset button checking cords
     elif minX < pos[0] < maxX and minY < pos[1] < maxY:
+        if not gameRunning:
+            timeStart = datetime.now().strftime("%H:%M:%S")
+            lastTime = timeStart
         changeGS()
 
 
@@ -223,7 +233,8 @@ def drawBox(pos, text):
 def drawTopBar():
     pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(2, 2, 636, 61))
 
-    # drawStr(timeBoxPos, sec)
+    drawStr(timeBoxPos, "Game Time: "+str(sec))
+
     if gameRunning:
         drawBox(resetBoxPos, "Reset")
         drawStr(resetBoxPos, "Reset")
@@ -268,6 +279,7 @@ def getRandomMap():
     #generate random walls
     #check path is avaiable checkPath()
     #return playField
+    pass
 
 """
 
@@ -289,12 +301,27 @@ def checkPath():
         return False
 
 
+def timeTicking():
+    global timeStart
+    global lastTime
+    global sec
+
+    new = datetime.now()
+    newTime = new.strftime("%H:%M:%S")
+
+    if newTime != lastTime:
+        sec = int(newTime[6:8]) - int(timeStart[6:8]) + (int(newTime[3:5]) - int(timeStart[3:5])) * 60
+        lastTime = newTime
+
+
 playField = initialGen()
 setStartEnd()
 
 while gameActiveBool:
 
     drawGame()
+    if gameRunning:
+        timeTicking()
 
     mousePos = pygame.mouse.get_pos()
 
