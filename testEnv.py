@@ -2,6 +2,7 @@ import pygame
 import math
 import time
 from datetime import datetime
+from random import randrange
 
 pygame.init()
 pygame.display.set_caption('visualApath')
@@ -24,6 +25,7 @@ gameRunning = False
 timeStart = 0
 lastTime = 0
 sec = 0
+
 
 def initialGen():
     fieldDic = {}
@@ -233,7 +235,7 @@ def drawBox(pos, text):
 def drawTopBar():
     pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(2, 2, 636, 61))
 
-    drawStr(timeBoxPos, "Game Time: "+str(sec))
+    drawStr(timeBoxPos, "Game Time: " + str(sec))
 
     if gameRunning:
         drawBox(resetBoxPos, "Reset")
@@ -266,15 +268,8 @@ def drawGame():
     drawTopBar()
 
 
-def setStartEnd():
-    updateNodeItem((0, 64), "state", "start")
-    updateNodeItem((0, 64), "g", 0)
-    updateNodeItem((576, 640), "state", "end")
-    updateAround((0, 64))
-
-
 """
-def getRandomMap():
+def getMap():
     #set of predetermines starts and ends
     #generate random walls
     #check path is avaiable checkPath()
@@ -284,7 +279,55 @@ def getRandomMap():
 """
 
 
-def checkPath():
+def genRandMap():
+    startCount = 1
+    endCount = 1
+    wallCount = 40
+    totalCount = startCount + endCount + wallCount
+
+    fieldDic = {}
+    spotDic = {}
+    spotCount = 0
+
+    for x in range(fieldSize):
+        for y in range(fieldSize):
+            fieldDic[(x * sqSide, topBar + (y * sqSide))] = {"f": math.inf, "g": math.inf, "h": math.inf,
+                                                             "state": "None",
+                                                             "parent": tuple}
+            spotCount += 1
+            spotDic[spotCount] = (x * sqSide, topBar + (y * sqSide))
+
+    while totalCount > 0:
+        totalCount = startCount + endCount + wallCount
+
+        randNum = randrange(1, spotCount + 1)
+
+        while randNum not in spotDic:
+            randNum = randrange(1, spotCount + 1)
+
+        if startCount == 1:
+            fieldDic[spotDic[randNum]]["state"] = "start"
+            spotDic.pop(randNum)
+            startCount = 0
+
+        elif endCount == 1:
+            fieldDic[spotDic[randNum]]["state"] = "end"
+            spotDic.pop(randNum)
+            endCount = 0
+
+        else:
+            fieldDic[spotDic[randNum]]["state"] = "wall"
+            spotDic.pop(randNum)
+            wallCount -= 1
+
+    return fieldDic
+
+
+def genFieldPath(field):
+    return field
+
+
+def checkPath(field, minPath, maxPath):
     # idk,
     try:
         currentNode = getPosByStateValue("state", "end")
@@ -314,8 +357,7 @@ def timeTicking():
         lastTime = newTime
 
 
-playField = initialGen()
-setStartEnd()
+playField = genRandMap()
 
 while gameActiveBool:
 
