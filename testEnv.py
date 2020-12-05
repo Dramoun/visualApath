@@ -279,6 +279,15 @@ def getMap():
 """
 
 
+def getPath():
+    playField = genRandMap()
+
+    while checkPath(playField, 15, 25):
+        playField = genRandMap()
+
+    return playField
+
+
 def genRandMap():
     startCount = 1
     endCount = 1
@@ -323,12 +332,9 @@ def genRandMap():
     return fieldDic
 
 
-def genFieldPath(field):
-    return field
-
-
 def checkPath(field, minPath, maxPath):
-    # idk,
+    field = run Apath
+
     try:
         currentNode = getPosByStateValue("state", "end")
         start = getPosByStateValue("state", "start")
@@ -343,6 +349,18 @@ def checkPath(field, minPath, maxPath):
     except TypeError:
         return False
 
+
+def getLowestFNode(field):
+    tempF = math.inf
+    nodePos = tuple
+
+    for pos, items in field.items():
+        if items["state"] == "open":
+            if items["f"] < tempF:
+                tempF = items["f"]
+                nodePos = pos
+
+    return nodePos
 
 def timeTicking():
     global timeStart
