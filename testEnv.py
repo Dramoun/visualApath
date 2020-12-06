@@ -21,6 +21,7 @@ myFont = pygame.font.SysFont("Calibri", int(sqSide / 2))
 
 gameActiveBool = True
 gameRunning = False
+foundEndBool = False
 
 timeStart = 0
 lastTime = 0
@@ -78,7 +79,8 @@ def clickController(pos):
     maxY = int(resetBoxPos[1] + (strHeight / 2)) + 4
 
     if relativeMouse in [cords for cords in playField.keys()] and gameRunning:
-        updateAround(relativeMouse)
+        if getNodeItem(relativeMouse, "state") == "open":
+            updateAround(relativeMouse)
 
     # Start/Reset button checking cords
     elif minX < pos[0] < maxX and minY < pos[1] < maxY:
@@ -89,14 +91,18 @@ def clickController(pos):
 
 
 def updateAround(pos):
+    global foundEndBool
+
     aList = getAround(pos)
 
     for ite, cords in enumerate(aList):
 
         if cords is not None:
 
-            # if getNodeItem(cords, "state") == "end":
-            # changeGS()
+            if getNodeItem(cords, "state") == "end":
+                #changeGS()
+                foundEndBool = True
+                print(foundEndBool)
 
             if getNodeItem(cords, "state") not in ("wall", "start", "end"):
 
@@ -333,7 +339,9 @@ def genRandMap():
 
 
 def checkPath(field, minPath, maxPath):
-    field = run Apath
+    while not foundEndBool:
+        # need to restructure defs to accept field to be edited
+        #field = run Apath
 
     try:
         currentNode = getPosByStateValue("state", "end")
@@ -362,6 +370,7 @@ def getLowestFNode(field):
 
     return nodePos
 
+
 def timeTicking():
     global timeStart
     global lastTime
@@ -376,6 +385,12 @@ def timeTicking():
 
 
 playField = genRandMap()
+
+# temporary
+updateNodeItem(getPosByStateValue("state", "start"), "g", 0)
+updateNodeItem(getPosByStateValue("state", "end"), "h", 0)
+updateAround(getPosByStateValue("state", "start"))
+# end temporary
 
 while gameActiveBool:
 
