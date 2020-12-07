@@ -1,6 +1,7 @@
 import pygame
 import math
 import time
+import copy
 from datetime import datetime
 from random import randrange
 
@@ -11,8 +12,9 @@ sqSide = 64
 fieldSize = 10
 
 topBar = sqSide
-timeBoxPos = (212, 33)
-resetBoxPos = (424, 33)
+timeBoxPos = (160, 33)
+resetBoxPos = (320, 33)
+stepsBoxPos = (480, 33)
 
 res = (sqSide * fieldSize, (sqSide * fieldSize) + topBar)
 
@@ -26,6 +28,7 @@ foundEndBool = False
 timeStart = 0
 lastTime = 0
 sec = 0
+steps = 0
 
 
 def initialGen():
@@ -42,21 +45,30 @@ def initialGen():
 
 def drawField():
     for pos, items in playField.items():
-        pygame.draw.rect(screen, getColorByState(items["state"]), (pos[0] + 1, (pos[1] + 1), sqSide - 2, sqSide - 2))
 
-        if items["f"] not in (math.inf, 0) and items["state"] not in ("start", "end", "wall"):
+        if items["f"] not in (math.inf, 0) and items["state"] in ("open", "closed"):
+            pygame.draw.rect(screen, getColorByState(items["state"]),
+                             (pos[0] + 1, (pos[1] + 1), sqSide - 2, sqSide - 2))
+
             drawStr(((pos[0] + (sqSide / 2)), (pos[1] + (sqSide / 2))), items["f"])
 
-        if items["state"] == "start":
+        elif items["state"] == "start":
+            pygame.draw.rect(screen, getColorByState(items["state"]),
+                             (pos[0] + 1, (pos[1] + 1), sqSide - 2, sqSide - 2))
             drawStr(((pos[0] + (sqSide / 2)), (pos[1] + (sqSide / 2))), "S")
 
-        # if end bool is ok
-        # elif items["state"] == "end":
-        # drawNodeF(pos, "F")
+        elif items["state"] == "end" and foundEndBool:
+            pygame.draw.rect(screen, getColorByState(items["state"]),
+                             (pos[0] + 1, (pos[1] + 1), sqSide - 2, sqSide - 2))
+            drawStr(((pos[0] + (sqSide / 2)), (pos[1] + (sqSide / 2))), "f")
+
+        elif items["state"] == "seenWall":
+            pygame.draw.rect(screen, getColorByState(items["state"]),
+                             (pos[0] + 1, (pos[1] + 1), sqSide - 2, sqSide - 2))
 
 
-def drawStr(pos, text):
-    printStr = myFont.render(str(text), False, (0, 0, 0))
+def drawStr(pos, text, color=(0, 0, 0)):
+    printStr = myFont.render(str(text), False, color)
     strWidth, strHeight = myFont.size(str(text))
 
     x = int(pos[0] - (strWidth / 2))
@@ -68,6 +80,7 @@ def drawStr(pos, text):
 def clickController(pos):
     global timeStart
     global lastTime
+    global steps
 
     relativeMouse = ((pos[0] // sqSide) * sqSide, (pos[1] // sqSide) * sqSide)
 
@@ -81,13 +94,19 @@ def clickController(pos):
     if relativeMouse in [cords for cords in playField.keys()] and gameRunning:
         if getNodeItem(relativeMouse, "state") == "open":
             updateAround(relativeMouse)
+            steps += 1
 
     # Start/Reset button checking cords
     elif minX < pos[0] < maxX and minY < pos[1] < maxY:
+
         if not gameRunning:
+            getField()
+
             timeStart = datetime.now().strftime("%H:%M:%S")
             lastTime = timeStart
+
         changeGS()
+        steps = 0
 
 
 def updateAround(pos):
@@ -100,11 +119,15 @@ def updateAround(pos):
         if cords is not None:
 
             if getNodeItem(cords, "state") == "end":
-                #changeGS()
                 foundEndBool = True
-                print(foundEndBool)
+                updateNodeItem(cords, "parent", pos)
+                if gameRunning:
+                    changeGS()
 
-            if getNodeItem(cords, "state") not in ("wall", "start", "end"):
+            elif getNodeItem(cords, "state") == "unseenWall":
+                updateNodeItem(cords, "state", "seenWall")
+
+            if getNodeItem(cords, "state") not in ("unseenWall", "seenWall", "start", "end"):
 
                 if ite < 4:
                     disValue = 14
@@ -131,7 +154,7 @@ def updateAround(pos):
                 if getNodeItem(cords, "state") != "closed":
                     updateNodeItem(cords, "state", "open")
 
-    if getNodeItem(pos, "state") not in ("start", "end", "wall"):
+    if getNodeItem(pos, "state") not in ("start", "end", "unseenWall", "seenWall"):
         updateNodeItem(pos, "state", "closed")
 
 
@@ -235,21 +258,27 @@ def drawBox(pos, text):
     x = int(pos[0] - (strWidth / 2))
     y = int(pos[1] - (strHeight / 2))
 
-    pygame.draw.rect(screen, (0, 0, 0,), pygame.Rect(x - 4, y - 4, strWidth + 4, strHeight + 4), 2)
+    pygame.draw.rect(screen, (255, 255, 255,), pygame.Rect(x - 4, y - 4, strWidth + 4, strHeight + 4), 2)
 
 
 def drawTopBar():
-    pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(2, 2, 636, 61))
+    pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(0, 0, 640, 64))
+    pygame.draw.rect(screen, (0, 0, 0), pygame.Rect(1, 1, 638, 62))
 
-    drawStr(timeBoxPos, "Game Time: " + str(sec))
+    drawStr(timeBoxPos, "Time: " + str(sec) + "s", (255, 255, 255))
+
+    if steps == 1:
+        drawStr(stepsBoxPos, "Step: " + str(steps), (255, 255, 255))
+    else:
+        drawStr(stepsBoxPos, "Steps: " + str(steps), (255, 255, 255))
 
     if gameRunning:
         drawBox(resetBoxPos, "Reset")
-        drawStr(resetBoxPos, "Reset")
+        drawStr(resetBoxPos, "Reset", (255, 255, 255))
 
     else:
         drawBox(resetBoxPos, "Start")
-        drawStr(resetBoxPos, "Start")
+        drawStr(resetBoxPos, "Start", (255, 255, 255))
 
 
 def getColorByState(state):
@@ -257,7 +286,7 @@ def getColorByState(state):
         return 25, 121, 169
     elif state == "end":
         return 68, 188, 216
-    elif state == "wall":
+    elif state == "seenWall":
         return 128, 57, 30
     elif state == "open":
         return 237, 184, 121
@@ -270,28 +299,39 @@ def getColorByState(state):
 
 
 def drawGame():
+    screen.fill((0, 0, 0))
+
     drawField()
     drawTopBar()
 
 
-"""
-def getMap():
-    #set of predetermines starts and ends
-    #generate random walls
-    #check path is avaiable checkPath()
-    #return playField
-    pass
+def getField():
+    global playField
 
-"""
+    playField = {}
 
-
-def getPath():
     playField = genRandMap()
+    tempField = copy.deepcopy(playField)
 
-    while checkPath(playField, 15, 25):
+    setStartEnd()
+
+    while runApath(15, 40):
         playField = genRandMap()
+        tempField = copy.deepcopy(playField)
 
-    return playField
+        setStartEnd()
+
+    playField = tempField
+    setStartEnd()
+
+
+def setStartEnd():
+    global foundEndBool
+    foundEndBool = False
+
+    updateNodeItem(getPosByStateValue("state", "start"), "g", 0)
+    updateNodeItem(getPosByStateValue("state", "end"), "h", 0)
+    updateAround(getPosByStateValue("state", "start"))
 
 
 def genRandMap():
@@ -331,31 +371,35 @@ def genRandMap():
             endCount = 0
 
         else:
-            fieldDic[spotDic[randNum]]["state"] = "wall"
+            fieldDic[spotDic[randNum]]["state"] = "unseenWall"
             spotDic.pop(randNum)
             wallCount -= 1
 
     return fieldDic
 
 
-def checkPath(field, minPath, maxPath):
-    while not foundEndBool:
-        # need to restructure defs to accept field to be edited
-        #field = run Apath
-
+def runApath(minPath, maxPath):
     try:
+        while not foundEndBool:
+            updateAround(getLowestFNode(playField))
+
+        pathLen = 0
         currentNode = getPosByStateValue("state", "end")
         start = getPosByStateValue("state", "start")
 
         while start != currentNode:
             currentNode = getNodeItem(currentNode, "parent")
-            if currentNode != start:
+            if start != currentNode:
                 updateNodeItem(currentNode, "state", "path")
+                pathLen += 1
 
-        return True
+        if minPath < pathLen < maxPath:
+            return False
+        else:
+            return True
 
     except TypeError:
-        return False
+        return True
 
 
 def getLowestFNode(field):
@@ -384,17 +428,12 @@ def timeTicking():
         lastTime = newTime
 
 
-playField = genRandMap()
-
-# temporary
-updateNodeItem(getPosByStateValue("state", "start"), "g", 0)
-updateNodeItem(getPosByStateValue("state", "end"), "h", 0)
-updateAround(getPosByStateValue("state", "start"))
-# end temporary
+playField = {}
 
 while gameActiveBool:
 
     drawGame()
+
     if gameRunning:
         timeTicking()
 
