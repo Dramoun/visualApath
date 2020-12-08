@@ -31,18 +31,6 @@ sec = 0
 steps = 0
 
 
-def initialGen():
-    fieldDic = {}
-
-    for x in range(fieldSize):
-        for y in range(fieldSize):
-            fieldDic[(x * sqSide, topBar + (y * sqSide))] = {"f": math.inf, "g": math.inf, "h": math.inf,
-                                                             "state": "None",
-                                                             "parent": tuple}
-
-    return fieldDic
-
-
 def drawField():
     for pos, items in playField.items():
 
