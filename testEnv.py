@@ -1,3 +1,5 @@
+import math
+import pygame
 from random import randrange
 
 
@@ -27,8 +29,7 @@ class PlayField:
 
         for x in range(self.fieldSize):
             for y in range(self.fieldSize):
-                self.field[(x, y)] = {}
-                # {"f": math.inf, "g": math.inf, "h": math.inf,"state": "None","parent": tuple}
+                self.field[(x, y)] = {"f": math.inf, "g": math.inf, "h": math.inf, "state": "None", "parent": tuple}
 
                 spotCount += 1
                 spotDic[spotCount] = (x, y)
@@ -120,7 +121,7 @@ class PlayField:
 
             if cords is not None:
 
-                if self.field[cords] == {} or self.field[cords]["state"] in ("open", "closed"):
+                if self.field[cords]["state"] in ("open", "closed", "None"):
 
                     if self.field[cords] != "closed":
                         self.updateNodeValue(cords, "state", "open")
@@ -137,7 +138,7 @@ class PlayField:
                     nodeH = self.calcNodeNum(cords, self.getPosByStateValue("state", "end"))
                     nodeF = nodeG + nodeH
 
-                    if self.field[cords] == {} or nodeF < self.getNodeItem(cords, "f"):
+                    if nodeF < self.getNodeItem(cords, "f"):
                         self.updateNodeValue(cords, "g", nodeG)
                         self.updateNodeValue(cords, "h", nodeH)
                         self.updateNodeValue(cords, "f", nodeF)
@@ -150,7 +151,7 @@ class PlayField:
                 elif self.field[cords]["state"] == "unseenWall":
                     self.field[cords]["state"] = "seenWall"
 
-        if self.field[position] == {} or self.getNodeItem(position, "state") == "open":
+        if self.getNodeItem(position, "state") == "open":
             self.updateNodeValue(position, "state", "closed")
 
     def initialUpdate(self):
@@ -185,8 +186,42 @@ class PlayField:
 field = PlayField(10, 40, 10, 20)
 field.validField()
 
-field.updateAround(field.getPosByStateValue("state", "start"))
 
-for key, value in field.field.items():
-    if value != {}:
-        print(key, value)
+gameActiveBool = True
+res = (640, 640)
+screen = pygame.display.set_mode(res)
+pygame.init()
+pygame.display.set_caption('visualApath')
+
+def getColorByState(state):
+    if state == "start":
+        return 25, 121, 169
+    elif state == "end":
+        return 68, 188, 216
+    elif state == "seenWall":
+        return 128, 57, 30
+    elif state == "open":
+        return 237, 184, 121
+    elif state == "closed":
+        return 224, 123, 57
+    elif state == "None":
+        return 255, 255, 255
+    elif state == "path":
+        return 0, 255, 0
+    elif state == "unseenWall":
+        return 128, 57, 30
+
+
+while gameActiveBool:
+
+    for pos, items in field.field.items():
+        pygame.draw.rect(screen, getColorByState(items["state"]),
+                         ((pos[0]*64) + 1, ((pos[1]*64) + 1), 62, 62))
+
+    for ev in pygame.event.get():
+        if ev.type == pygame.QUIT:
+            gameActiveBool = False
+
+    pygame.display.update()
+
+pygame.quit()
