@@ -1,6 +1,7 @@
 import math
 import pygame
-from random import randrange
+import copy
+import random
 
 
 class PlayField:
@@ -13,61 +14,57 @@ class PlayField:
         self.pathMax = pathMax
 
         self.endBoolFound = False
+        self.tempField = {}
+
+        self.validField()
 
     def validField(self):
         self.genRandMap()
         self.initialUpdate()
+        self.tempField = copy.deepcopy(self.field)
 
         while self.genFieldPath():
-            print(1)
             self.genRandMap()
             self.initialUpdate()
-        # should return true if field has len path between min max
+            self.tempField = copy.deepcopy(self.field)
+
+        self.field = self.tempField
 
     def genRandMap(self):
-        startCount = 1
-        endCount = 1
-        totalCount = startCount + endCount + self.wallCount
+        walls = self.wallCount
 
-        spotDic = {}
-        spotCount = -1
+        spotList = []
 
         for x in range(self.fieldSize):
             for y in range(self.fieldSize):
                 self.field[(x, y)] = {"f": math.inf, "g": math.inf, "h": math.inf, "state": "None", "parent": tuple}
 
-                spotCount += 1
-                spotDic[spotCount] = (x, y)
+                spotList.append((x, y))
 
-        while totalCount > 0:
-            totalCount = startCount + endCount + self.wallCount
+        startPos, endPos = self.genStartEnd()
 
-            randNum = randrange(spotCount)
+        self.field[startPos]["state"] = "start"
+        spotList.remove(startPos)
 
-            while randNum not in spotDic:
-                randNum = randrange(1, spotCount + 1)
+        self.field[endPos]["state"] = "end"
+        spotList.remove(endPos)
 
-            if startCount == 1:
-                self.field[spotDic[randNum]]["state"] = "start"
-                spotDic.pop(randNum)
-                startCount = 0
-
-            elif endCount == 1:
-                self.field[spotDic[randNum]]["state"] = "end"
-                spotDic.pop(randNum)
-                endCount = 0
-
-            else:
-                self.field[spotDic[randNum]]["state"] = "unseenWall"
-                spotDic.pop(randNum)
-                self.wallCount -= 1
+        while walls > 0:
+            randPos = random.choice(spotList)
+            self.field[randPos]["state"] = "unseenWall"
+            spotList.remove(randPos)
+            walls -= 1
 
     def genFieldPath(self):
         while not self.endBoolFound:
-            if not self.getLowestFNode():
+
+            lowNode = self.getLowestFNode()
+
+            if lowNode == tuple:
                 return True
+
             else:
-                self.updateAround(self.getLowestFNode())
+                self.updateAround(lowNode)
 
         pathLen = 0
         currentNode = self.getPosByStateValue("state", "end")
@@ -81,6 +78,8 @@ class PlayField:
 
         if self.pathMin < pathLen < self.pathMax:
             return False
+
+        return True
 
     def getAround(self, position):
         sideMin = 0
@@ -139,6 +138,44 @@ class PlayField:
 
         return tl, tr, bl, br, tm, left, right, bm
 
+    @staticmethod
+    def genStartEnd():
+        posChoices = (0, 1, 2, 7, 8, 9)
+        endPossibility = (1, 2, 3)
+
+        randPossibility = random.choice(endPossibility)
+
+        startX = random.choice(posChoices)
+        startY = random.choice(posChoices)
+
+        if randPossibility == 1:
+            if startX < 5:
+                endX = startX + 7
+            else:
+                endX = startX - 7
+            endY = startY
+
+        elif randPossibility == 2:
+            endX = startX
+
+            if startY < 5:
+                endY = startY + 7
+            else:
+                endY = startY - 7
+
+        else:
+            if startX < 5:
+                endX = startX + 7
+            else:
+                endX = startX - 7
+
+            if startY < 5:
+                endY = startY + 7
+            else:
+                endY = startY - 7
+
+        return (startX, startY), (endX, endY)
+
     def updateAround(self, position):
         aList = self.getAround(position)
 
@@ -147,9 +184,6 @@ class PlayField:
             if cords is not None:
 
                 if self.field[cords]["state"] in ("open", "closed", "None"):
-
-                    if self.field[cords] != "closed":
-                        self.updateNodeValue(cords, "state", "open")
 
                     if ite < 4:
                         disValue = 14
@@ -169,6 +203,9 @@ class PlayField:
                         self.updateNodeValue(cords, "f", nodeF)
                         self.updateNodeValue(cords, "parent", position)
 
+                    if self.field[cords]["state"] == "None":
+                        self.updateNodeValue(cords, "state", "open")
+
                 elif self.field[cords]["state"] == "end":
                     self.endBoolFound = True
                     self.updateNodeValue(cords, "parent", position)
@@ -183,6 +220,8 @@ class PlayField:
         self.endBoolFound = False
 
         self.updateNodeValue(self.getPosByStateValue("state", "start"), "g", 0)
+        self.updateNodeValue(self.getPosByStateValue("state", "start"), "parent",
+                             self.getPosByStateValue("state", "start"))
         self.updateNodeValue(self.getPosByStateValue("state", "end"), "h", 0)
         self.updateAround(self.getPosByStateValue("state", "start"))
 
@@ -217,21 +256,17 @@ class PlayField:
                     tempF = items["f"]
                     nodePos = pos
 
-        if nodePos == tuple:
-            return False
-
         return nodePos
 
 
-field = PlayField(10, 40, 10, 20)
-field.validField()
-
+field = PlayField(10, 40, 15, 30)
 
 gameActiveBool = True
 res = (640, 640)
 screen = pygame.display.set_mode(res)
 pygame.init()
 pygame.display.set_caption('visualApath')
+
 
 def getColorByState(state):
     if state == "start":
@@ -256,7 +291,7 @@ while gameActiveBool:
 
     for pos, items in field.field.items():
         pygame.draw.rect(screen, getColorByState(items["state"]),
-                         ((pos[0]*64) + 1, ((pos[1]*64) + 1), 62, 62))
+                         ((pos[0] * 64) + 1, ((pos[1] * 64) + 1), 62, 62))
 
     for ev in pygame.event.get():
         if ev.type == pygame.QUIT:
