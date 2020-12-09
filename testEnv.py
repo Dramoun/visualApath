@@ -17,6 +17,11 @@ class PlayField:
     def validField(self):
         self.genRandMap()
         self.initialUpdate()
+
+        while self.genFieldPath():
+            print(1)
+            self.genRandMap()
+            self.initialUpdate()
         # should return true if field has len path between min max
 
     def genRandMap(self):
@@ -56,6 +61,26 @@ class PlayField:
                 self.field[spotDic[randNum]]["state"] = "unseenWall"
                 spotDic.pop(randNum)
                 self.wallCount -= 1
+
+    def genFieldPath(self):
+        while not self.endBoolFound:
+            if not self.getLowestFNode():
+                return True
+            else:
+                self.updateAround(self.getLowestFNode())
+
+        pathLen = 0
+        currentNode = self.getPosByStateValue("state", "end")
+        start = self.getPosByStateValue("state", "start")
+
+        while start != currentNode:
+            currentNode = self.getNodeItem(currentNode, "parent")
+            if start != currentNode:
+                self.updateNodeValue(currentNode, "state", "path")
+                pathLen += 1
+
+        if self.pathMin < pathLen < self.pathMax:
+            return False
 
     def getAround(self, position):
         sideMin = 0
@@ -181,6 +206,21 @@ class PlayField:
             return int(14 * dY + (10 * (dX - dY)))
 
         return int(14 * dX + (10 * (dY - dX)))
+
+    def getLowestFNode(self):
+        tempF = math.inf
+        nodePos = tuple
+
+        for pos, items in self.field.items():
+            if items["state"] == "open":
+                if items["f"] < tempF:
+                    tempF = items["f"]
+                    nodePos = pos
+
+        if nodePos == tuple:
+            return False
+
+        return nodePos
 
 
 field = PlayField(10, 40, 10, 20)
