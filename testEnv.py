@@ -1,22 +1,214 @@
 import math
 import pygame
 import copy
-import random
+from random import choice
+from sys import exit
+from datetime import datetime
 
 
-class PlayField:
+class GameRun:
 
-    def __init__(self, fieldSize, wallCount, pathMin, pathMax):
-        self.field = {}
+    def __init__(self, sqSize, fieldSize, wallCount, pathMin, pathMax):
+
+        # game Logic vars START
+        self.sqSize = sqSize
         self.fieldSize = fieldSize
         self.wallCount = wallCount
         self.pathMin = pathMin
         self.pathMax = pathMax
 
-        self.endBoolFound = False
-        self.tempField = {}
+        self.nodeBoarderSize = 1
+        self.butBoxBorSize = 2
+        self.topBarSize = sqSize
+        self.timeBoxPos = (160, 33)
+        self.resetBoxPos = (320, 33)
+        self.stepsBoxPos = (480, 33)
 
-        self.validField()
+        self.gameSteps = 0
+        self.gameTime = 0
+        self.timeStart = 0
+        self.lastTime = 0
+
+        self.gameActiveBool = True
+        self.gameRunning = False
+        self.gameName = 'visualApath'
+        self.gameRes = (sqSize * fieldSize, (sqSize * fieldSize) + self.topBarSize)
+        self.myFont = None
+
+        self.gameScreen = pygame.display.set_mode(self.gameRes)
+        # game Logic vars END
+
+        # field Logic vars START
+        self.field = {}
+        self.tempField = {}
+        self.endBoolFound = False
+        # field Logic vars END
+
+    # game logic functions START
+    def mainLoop(self):
+        pygame.init()
+        pygame.display.set_caption(self.gameName)
+        self.myFont = pygame.font.SysFont("Calibri", int(self.sqSize / 2))
+
+        while self.gameActiveBool:
+
+            self.drawGame()
+
+            if self.gameRunning:
+                self.timeTicking()
+
+            mousePos = pygame.mouse.get_pos()
+
+            for ev in pygame.event.get():
+
+                if ev.type == pygame.QUIT:
+                    self.gameActiveBool = False
+                    pygame.quit()
+                    exit(0)
+
+                if ev.type == pygame.MOUSEBUTTONDOWN:
+                    self.clickController(mousePos)
+
+            pygame.display.update()
+
+    def drawGame(self):
+        self.gameScreen.fill((0, 0, 0))
+
+        self.drawField()
+        self.drawTopBar()
+
+    def drawField(self):
+
+        for pos, items in self.field.items():
+
+            if items["state"] not in ("unseenWall", "None"):
+
+                drawPosX = (pos[0] * self.sqSize) + self.nodeBoarderSize
+                drawPosY = (pos[1] * self.sqSize) + self.nodeBoarderSize + self.topBarSize
+                drawSizeX = self.sqSize - (self.nodeBoarderSize * 2)
+                drawSizeY = self.sqSize - (self.nodeBoarderSize * 2)
+
+                if items["state"] == "end" and self.endBoolFound:
+                    pygame.draw.rect(self.gameScreen, self.getColorByState(items["state"]),
+                                     (drawPosX, drawPosY, drawSizeX, drawSizeY))
+
+                elif items["state"] in ("open", "closed"):
+                    pygame.draw.rect(self.gameScreen, self.getColorByState(items["state"]),
+                                     (drawPosX, drawPosY, drawSizeX, drawSizeY))
+
+                    self.drawStr((drawPosX + (self.sqSize / 2), drawPosY + (self.sqSize / 2)), items["f"])
+
+                elif items["state"] in ("start", "seenWall"):
+                    pygame.draw.rect(self.gameScreen, self.getColorByState(items["state"]),
+                                     (drawPosX, drawPosY, drawSizeX, drawSizeY))
+
+                    if items["state"] == "start":
+                        # feature to be added here if we need to mark start with anything
+                        pass
+
+    def drawTopBar(self):
+        pygame.draw.rect(self.gameScreen, (255, 255, 255), pygame.Rect(0, 0, 640, 64))
+        pygame.draw.rect(self.gameScreen, (0, 0, 0), pygame.Rect(1, 1, 638, 62))
+
+        self.drawStr(self.timeBoxPos, "Time: " + str(self.gameTime) + "s", (255, 255, 255))
+
+        if self.gameSteps == 1:
+            self.drawStr(self.stepsBoxPos, "Step: " + str(self.gameSteps), (255, 255, 255))
+        else:
+            self.drawStr(self.stepsBoxPos, "Steps: " + str(self.gameSteps), (255, 255, 255))
+
+        if self.gameRunning:
+            self.drawBox(self.resetBoxPos, "Reset")
+            self.drawStr(self.resetBoxPos, "Reset", (255, 255, 255))
+
+        else:
+            self.drawBox(self.resetBoxPos, "Start")
+            self.drawStr(self.resetBoxPos, "Start", (255, 255, 255))
+
+    def drawStr(self, position, text, color=(0, 0, 0)):
+        printStr = self.myFont.render(str(text), False, color)
+        strWidth, strHeight = self.myFont.size(str(text))
+
+        x = int(position[0] - (strWidth / 2))
+        y = int(position[1] - (strHeight / 2))
+
+        self.gameScreen.blit(printStr, (x, y))
+
+    def drawBox(self, position, text):
+        strWidth, strHeight = self.myFont.size(str(text))
+
+        x = int(position[0] - (strWidth / 2)) - (self.butBoxBorSize * 2)
+        y = int(position[1] - (strHeight / 2)) - (self.butBoxBorSize * 2)
+
+        # check the boarders, should be vars not nums?
+        pygame.draw.rect(self.gameScreen, (255, 255, 255,),
+                         pygame.Rect(x, y, strWidth + (self.butBoxBorSize * 2), strHeight + (self.butBoxBorSize * 2)),
+                         self.butBoxBorSize)
+
+    def clickController(self, position):
+
+        # Mouse click in top bar
+        if position[1] < self.topBarSize:
+
+            strWidth, strHeight = self.myFont.size(str("Start"))
+            minX = int(self.resetBoxPos[0] - (strWidth / 2)) - (self.butBoxBorSize * 2)
+            minY = int(self.resetBoxPos[1] - (strHeight / 2)) - (self.butBoxBorSize * 2)
+
+            maxX = int(self.resetBoxPos[0] + (strWidth / 2)) + (self.butBoxBorSize * 2)
+            maxY = int(self.resetBoxPos[1] + (strHeight / 2)) + (self.butBoxBorSize * 2)
+
+            if minX < position[0] < maxX and minY < position[1] < maxY:
+
+                if not self.gameRunning:
+                    self.validField()
+
+                    self.timeStart = datetime.now().strftime("%H:%M:%S")
+                    self.lastTime = self.timeStart
+
+                self.changeGS()
+                self.gameSteps = 0
+
+        # Mouse click in field
+        else:
+            if self.gameRunning:
+                relativeMouse = (position[0] // self.sqSize,
+                                 (position[1] - self.topBarSize) // self.sqSize)
+
+                if self.getNodeItem(relativeMouse, "state") == "open":
+                    self.updateAround(relativeMouse)
+                    self.gameSteps += 1
+
+    @staticmethod
+    def getColorByState(state):
+        if state == "start":
+            return 25, 121, 169
+        elif state == "end":
+            return 68, 188, 216
+        elif state == "seenWall":
+            return 128, 57, 30
+        elif state == "open":
+            return 237, 184, 121
+        elif state == "closed":
+            return 224, 123, 57
+
+    def changeGS(self):
+        if self.gameRunning:
+            self.gameRunning = False
+
+        else:
+            self.gameRunning = True
+
+    def timeTicking(self):
+        new = datetime.now()
+        newTime = new.strftime("%H:%M:%S")
+
+        if newTime != self.lastTime:
+            self.gameTime = int(newTime[6:8]) - int(self.timeStart[6:8]) + (int(newTime[3:5]) - int(self.timeStart[3:5])) * 60
+            self.lastTime = newTime
+
+    # game logic functions END
+
+    # field logic functions START
 
     def validField(self):
         self.genRandMap()
@@ -28,10 +220,13 @@ class PlayField:
             self.initialUpdate()
             self.tempField = copy.deepcopy(self.field)
 
+        self.initialUpdate()
         self.field = self.tempField
+        self.tempField = {}
 
     def initialUpdate(self):
         self.endBoolFound = False
+        self.gameRunning = False
 
         self.updateNodeValue(self.getPosByStateValue("state", "start"), "g", 0)
         self.updateNodeValue(self.getPosByStateValue("state", "start"), "parent",
@@ -59,7 +254,7 @@ class PlayField:
         spotList.remove(endPos)
 
         while walls > 0:
-            randPos = random.choice(spotList)
+            randPos = choice(spotList)
             self.field[randPos]["state"] = "unseenWall"
             spotList.remove(randPos)
             walls -= 1
@@ -123,6 +318,7 @@ class PlayField:
                 elif self.field[cords]["state"] == "end":
                     self.endBoolFound = True
                     self.updateNodeValue(cords, "parent", position)
+                    self.changeGS()
 
                 elif self.field[cords]["state"] == "unseenWall":
                     self.field[cords]["state"] = "seenWall"
@@ -215,10 +411,10 @@ class PlayField:
         posChoices = (0, 1, 2, 7, 8, 9)
         endPossibility = (1, 2, 3)
 
-        randPossibility = random.choice(endPossibility)
+        randPossibility = choice(endPossibility)
 
-        startX = random.choice(posChoices)
-        startY = random.choice(posChoices)
+        startX = choice(posChoices)
+        startY = choice(posChoices)
 
         if randPossibility == 1:
             if startX < 5:
@@ -258,64 +454,7 @@ class PlayField:
 
         return int(14 * dX + (10 * (dY - dX)))
 
-
-class GameLogic:
-
-    def __init__(self, sqSize, fieldSize):
-        self.sqSize = sqSize
-        self.fieldSize = fieldSize
-
-        self.nodeBoarderSize = 1
-        self.field = PlayField(fieldSize, 40, 15, 30).field
-        self.gameActiveBool = True
-        self.gameName = 'visualApath'
-        self.gameRes = (sqSize*fieldSize, sqSize*fieldSize)
-
-        self.gameScreen = pygame.display.set_mode(self.gameRes)
-
-    def initialLoad(self):
-        pygame.init()
-        pygame.display.set_caption(self.gameName)
-
-    def mainLoop(self):
-        self.initialLoad()
-
-        while self.gameActiveBool:
-
-            self.drawField()
-
-            for ev in pygame.event.get():
-
-                if ev.type == pygame.QUIT:
-
-                    self.gameActiveBool = False
-                    pygame.quit()
-
-            pygame.display.update()
-
-    def drawField(self):
-        for pos, items in self.field.items():
-            pygame.draw.rect(self.gameScreen, self.getColorByState(items["state"]),
-                             ((pos[0] * self.sqSize) + self.nodeBoarderSize, ((pos[1] * self.sqSize) + self.nodeBoarderSize), 62, 62))
-
-    def getColorByState(self, state):
-        if state == "start":
-            return 25, 121, 169
-        elif state == "end":
-            return 68, 188, 216
-        elif state == "seenWall":
-            return 128, 57, 30
-        elif state == "open":
-            return 237, 184, 121
-        elif state == "closed":
-            return 224, 123, 57
-        elif state == "None":
-            return 255, 255, 255
-        elif state == "path":
-            return 0, 255, 0
-        elif state == "unseenWall":
-            return 128, 57, 30
+    # field logic functions END
 
 
-run = GameLogic(64, 10)
-run.mainLoop()
+GameRun(64, 10, 40, 15, 30).mainLoop()
