@@ -71,6 +71,39 @@ class GameRun:
 
             pygame.display.update()
 
+    def clickController(self, position):
+
+        # Mouse click in top bar
+        if position[1] < self.topBarSize:
+
+            strWidth, strHeight = self.myFont.size(str("Start"))
+            minX = int(self.resetBoxPos[0] - (strWidth / 2)) - (self.butBoxBorSize * 2)
+            minY = int(self.resetBoxPos[1] - (strHeight / 2)) - (self.butBoxBorSize * 2)
+
+            maxX = int(self.resetBoxPos[0] + (strWidth / 2)) + (self.butBoxBorSize * 2)
+            maxY = int(self.resetBoxPos[1] + (strHeight / 2)) + (self.butBoxBorSize * 2)
+
+            if minX < position[0] < maxX and minY < position[1] < maxY:
+
+                if not self.gameRunning:
+                    self.validField()
+
+                    self.timeStart = datetime.now().strftime("%H:%M:%S")
+                    self.lastTime = self.timeStart
+
+                self.changeGS()
+                self.gameSteps = 0
+
+        # Mouse click in field
+        else:
+            if self.gameRunning:
+                relativeMouse = (position[0] // self.sqSize,
+                                 (position[1] - self.topBarSize) // self.sqSize)
+
+                if self.getNodeItem(relativeMouse, "state") == "open":
+                    self.updateAround(relativeMouse)
+                    self.gameSteps += 1
+
     def drawGame(self):
         self.gameScreen.fill((0, 0, 0))
 
@@ -145,52 +178,6 @@ class GameRun:
                          pygame.Rect(x, y, strWidth + (self.butBoxBorSize * 2), strHeight + (self.butBoxBorSize * 2)),
                          self.butBoxBorSize)
 
-    def clickController(self, position):
-
-        # Mouse click in top bar
-        if position[1] < self.topBarSize:
-
-            strWidth, strHeight = self.myFont.size(str("Start"))
-            minX = int(self.resetBoxPos[0] - (strWidth / 2)) - (self.butBoxBorSize * 2)
-            minY = int(self.resetBoxPos[1] - (strHeight / 2)) - (self.butBoxBorSize * 2)
-
-            maxX = int(self.resetBoxPos[0] + (strWidth / 2)) + (self.butBoxBorSize * 2)
-            maxY = int(self.resetBoxPos[1] + (strHeight / 2)) + (self.butBoxBorSize * 2)
-
-            if minX < position[0] < maxX and minY < position[1] < maxY:
-
-                if not self.gameRunning:
-                    self.validField()
-
-                    self.timeStart = datetime.now().strftime("%H:%M:%S")
-                    self.lastTime = self.timeStart
-
-                self.changeGS()
-                self.gameSteps = 0
-
-        # Mouse click in field
-        else:
-            if self.gameRunning:
-                relativeMouse = (position[0] // self.sqSize,
-                                 (position[1] - self.topBarSize) // self.sqSize)
-
-                if self.getNodeItem(relativeMouse, "state") == "open":
-                    self.updateAround(relativeMouse)
-                    self.gameSteps += 1
-
-    @staticmethod
-    def getColorByState(state):
-        if state == "start":
-            return 25, 121, 169
-        elif state == "end":
-            return 68, 188, 216
-        elif state == "seenWall":
-            return 128, 57, 30
-        elif state == "open":
-            return 237, 184, 121
-        elif state == "closed":
-            return 224, 123, 57
-
     def changeGS(self):
         if self.gameRunning:
             self.gameRunning = False
@@ -205,6 +192,19 @@ class GameRun:
         if newTime != self.lastTime:
             self.gameTime = int(newTime[6:8]) - int(self.timeStart[6:8]) + (int(newTime[3:5]) - int(self.timeStart[3:5])) * 60
             self.lastTime = newTime
+
+    @staticmethod
+    def getColorByState(state):
+        if state == "start":
+            return 25, 121, 169
+        elif state == "end":
+            return 68, 188, 216
+        elif state == "seenWall":
+            return 128, 57, 30
+        elif state == "open":
+            return 237, 184, 121
+        elif state == "closed":
+            return 224, 123, 57
 
     # game logic functions END
 
