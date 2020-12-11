@@ -190,21 +190,9 @@ class GameRun:
         newTime = new.strftime("%H:%M:%S")
 
         if newTime != self.lastTime:
-            self.gameTime = int(newTime[6:8]) - int(self.timeStart[6:8]) + (int(newTime[3:5]) - int(self.timeStart[3:5])) * 60
+            self.gameTime = int(newTime[6:8]) - int(self.timeStart[6:8]) + \
+                            (int(newTime[3:5]) - int(self.timeStart[3:5])) * 60
             self.lastTime = newTime
-
-    @staticmethod
-    def getColorByState(state):
-        if state == "start":
-            return 25, 121, 169
-        elif state == "end":
-            return 68, 188, 216
-        elif state == "seenWall":
-            return 128, 57, 30
-        elif state == "open":
-            return 237, 184, 121
-        elif state == "closed":
-            return 224, 123, 57
 
     # game logic functions END
 
@@ -406,6 +394,21 @@ class GameRun:
 
         return nodePos
 
+    # field logic functions END
+
+    @staticmethod
+    def getColorByState(state):
+        if state == "start":
+            return 25, 121, 169
+        elif state == "end":
+            return 68, 188, 216
+        elif state == "seenWall":
+            return 128, 57, 30
+        elif state == "open":
+            return 237, 184, 121
+        elif state == "closed":
+            return 224, 123, 57
+
     @staticmethod
     def genStartEnd():
         posChoices = (0, 1, 2, 7, 8, 9)
@@ -453,8 +456,6 @@ class GameRun:
             return int(14 * dY + (10 * (dX - dY)))
 
         return int(14 * dX + (10 * (dY - dX)))
-
-    # field logic functions END
 
 
 GameRun(64, 10, 40, 15, 30).mainLoop()
