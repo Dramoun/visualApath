@@ -268,7 +268,7 @@ class GameRun:
                 self.updateNodeValue(currentNode, "state", "path")
                 pathLen += 1
 
-        if self.pathMin < pathLen < self.pathMax:
+        if self.pathMin <= pathLen <= self.pathMax:
             return False
 
         return True
@@ -458,4 +458,10 @@ class GameRun:
         return int(14 * dX + (10 * (dY - dX)))
 
 
-GameRun(64, 10, 40, 15, 30).mainLoop()
+sqSize = 64
+fieldSize = 10
+wallCount = 40
+minPath = 15
+maxPath = 30
+
+GameRun(sqSize, fieldSize, wallCount, minPath, maxPath).mainLoop()
